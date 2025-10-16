@@ -262,6 +262,9 @@ if st.button("Generate Strategy"):
         except Exception as e:
             st.error(f"LLM Error: {e}")
 
+
+
+
 # =========================
 # INTERACTIVE Q&A SECTION
 # =========================
