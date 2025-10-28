@@ -80,7 +80,7 @@ Instructions:
     • Stop loss and take profit levels
     • Expected holding period
     • Risk level (Low/Moderate/High)
-    • Optional: simple pseudocode for backtesting
+    • Backtesting code and results
 Return the output in a clean, readable markdown format.
 """
 
