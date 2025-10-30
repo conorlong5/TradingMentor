@@ -56,14 +56,25 @@ if not symbol:
 # =========================
 try:
     st.write(f"Fetching data for **{symbol}**...")
-    data = yf.download(symbol, period=period, interval="1d")
+    # Choose interval based on selected period to avoid empty results
+    if period == "1d":
+        interval = "30m"
+    elif period == "1mo":
+        interval = "1h"
+    else:
+        interval = "1d"
 
+    data = yf.download(symbol, period=period, interval=interval, progress=False, threads=False)
+
+    # Fix multi-index columns if needed
     if isinstance(data.columns, pd.MultiIndex):
-        data.columns = [col[0] for col in data.columns]
+        data.columns = [c[0] for c in data.columns]
 
+    # Stop app if data is empty
     if data.empty:
-        st.error("No data found. Try another symbol.")
+        st.error("⚠️ No data returned. Try a longer period or different stock.")
         st.stop()
+
 except Exception as e:
     st.error(f"Error fetching data: {e}")
     st.stop()
