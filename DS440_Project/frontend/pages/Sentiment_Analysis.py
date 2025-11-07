@@ -8,9 +8,6 @@ from dotenv import load_dotenv
 load_dotenv()
 newsapi = NewsApiClient(api_key=os.getenv("NEWS_API_KEY"))
 
-if st.session_state.get("page_loaded_once", False) is False:
-    st.session_state.page_loaded_once = True
-    st.switch_page("app")
 
 st.set_page_config(page_title="Sentiment Analysis", layout="wide")
 st.title("📰 Stock Sentiment Analysis")

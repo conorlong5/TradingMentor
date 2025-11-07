@@ -8,9 +8,7 @@ st.set_page_config(page_title="Stock Data", layout="wide")
 
 st.title("📊 Stock Data Viewer")
 
-if st.session_state.get("page_loaded_once", False) is False:
-    st.session_state.page_loaded_once = True
-    st.switch_page("app")
+
 
 # ----------------------------
 # Inputs
