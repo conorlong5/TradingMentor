@@ -41,7 +41,7 @@ button[data-testid="baseButton-secondary"]:hover {
 col_back, col_title = st.columns([1, 11])
 with col_back:
     if st.button("← Home"):
-        st.switch_page("Home.py")
+        st.switch_page("app.py")
 with col_title:
     st.title("📊 Stock Data Viewer")
 
