@@ -92,7 +92,6 @@ if st.button("Fetch Data"):
 
             st.session_state.stock_data = data
             st.session_state.stock_symbol = symbol
-            st.success(f"✅ Data fetched for {symbol}")
         except Exception as e:
             st.error(f"Error fetching data: {e}")
 
