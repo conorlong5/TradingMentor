@@ -18,6 +18,13 @@ st.set_page_config(page_title="Trading Strategy", layout="wide")
 
 from backend.backtest_engine import run_backtest, STRATEGY_TEMPLATE
 
+col_back, col_title = st.columns([1, 11])
+with col_back:
+    if st.button("← Home"):
+        st.switch_page("app.py")
+with col_title:
+    st.title("📊 Stock Data Viewer")
+
 # ------- Gemini explainer helper -------
 def render_strategy_explanation_with_gemini(
     *, model_name: str = "gemini-flash-latest",

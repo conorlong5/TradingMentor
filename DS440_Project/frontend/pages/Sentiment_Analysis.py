@@ -8,6 +8,12 @@ from dotenv import load_dotenv
 load_dotenv()
 newsapi = NewsApiClient(api_key=os.getenv("NEWS_API_KEY"))
 
+col_back, col_title = st.columns([1, 11])
+with col_back:
+    if st.button("← Home"):
+        st.switch_page("app.py")
+with col_title:
+    st.title("📊 Stock Data Viewer")
 
 st.set_page_config(page_title="Sentiment Analysis", layout="wide")
 st.title("📰 Stock Sentiment Analysis")

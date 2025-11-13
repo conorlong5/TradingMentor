@@ -23,13 +23,11 @@ st.set_page_config(
 if 'last_update' not in st.session_state:
     st.session_state.last_update = time.time()
 
-# Check if 60 seconds have passed since last update
 current_time = time.time()
-if current_time - st.session_state.last_update > 60:  # Change 60 to your preferred seconds
+if current_time - st.session_state.last_update > 60: 
     st.session_state.last_update = current_time
     st.rerun()
 
-# Optional: Show last update time
 st.markdown(f"""
     <p style='text-align:center; color:gray; font-size:12px; margin-bottom:10px;'>
         Last updated: {datetime.now().strftime('%I:%M:%S %p')}
@@ -168,10 +166,8 @@ def market_snapshot():
                 color = "#00C853" if change > 0 else "#E53935"
                 arrow = "▲" if change > 0 else "▼"
                 
-                # Dynamic border color based on stock performance
                 border_color = "rgba(0, 200, 83, 0.4)" if change > 0 else "rgba(229, 57, 53, 0.4)"
 
-                # --- Create the sparkline chart ---
                 prices = gaussian_filter1d(hist["Close"].values, sigma=1)
                 fig, ax = plt.subplots(figsize=(3, 0.8))
                 fig.patch.set_alpha(0.0)
@@ -183,14 +179,12 @@ def market_snapshot():
                 ax.tick_params(left=False, bottom=False, labelleft=False, labelbottom=False)
                 ax.grid(False)
                 
-                # Convert plot to base64 image
                 buf = BytesIO()
                 fig.savefig(buf, format='png', transparent=True, bbox_inches='tight')
                 buf.seek(0)
                 img_base64 = base64.b64encode(buf.read()).decode()
                 plt.close(fig)
 
-                # 🟢 Complete bordered box with embedded chart
                 st.markdown(f"""
                     <div style='
                         border: 2px solid {border_color};
@@ -267,12 +261,10 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# Create hidden navigation buttons
 col1, col2, col3 = st.columns(3)
 
 nav_choice = None
 
-# Style the buttons and add the cards on top
 st.markdown("""
 <style>
 /* Move buttons up and add cards styling */
@@ -287,7 +279,6 @@ button[data-testid="baseButton-secondary"] {
 </style>
 """, unsafe_allow_html=True)
 
-# Add visual cards above buttons using separate markdown calls
 col1, col2, col3 = st.columns(3)
 
 with col1:
