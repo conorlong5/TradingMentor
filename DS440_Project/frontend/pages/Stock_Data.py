@@ -4,6 +4,30 @@ import pandas as pd
 import plotly.graph_objects as go
 import ta
 
+# -------- interval options based on selected period --------
+def get_interval_options(period: str):
+    """
+    Return valid Yahoo/yfinance interval options for a given period.
+
+    Yahoo limits intraday history roughly as:
+      - 1m: ~7d
+      - 2m/5m/15m/30m: ~60d
+      - 60m/1h: ~2y
+      - 1d+: many years
+    """
+    if period in ["1d", "5d"]:
+        # very short history: allow full intraday range
+        return ["1m", "2m", "5m", "15m", "30m", "1h", "1d"]
+    elif period in ["1mo"]:
+        # one month: 1m is too long; 2m/5m/15m/30m/1h/1d are ok-ish
+        return ["2m", "5m", "15m", "30m", "1h", "1d"]
+    elif period in ["3mo", "6mo"]:
+        # 3–6 months: stick to 30m/1h/1d
+        return ["30m", "1h", "1d"]
+    else:  # "1y", "2y", or anything longer
+        return ["1h", "1d"]
+# -----------------------------------------------------------
+
 st.set_page_config(page_title="Stock Data", layout="wide")
 
 # ----------------------------
@@ -48,11 +72,26 @@ with col_title:
 # ----------------------------
 # Inputs
 # ----------------------------
-col1, col2 = st.columns(2)
+col1, col2, col3 = st.columns(3)
 with col1:
     symbol = st.text_input("Enter a Stock Symbol (e.g. AAPL, TSLA, NVDA):", "AAPL")
 with col2:
-    period = st.selectbox("Select Time Period", ["1d", "1mo", "6mo", "1y", "5y"], index=1)
+    # Expanded period options
+    period = st.selectbox(
+        "History",
+        ["1d", "5d", "1mo", "3mo", "6mo", "1y", "2y"],
+        index=2,  # default to "1mo" (or whatever you prefer)
+        key="period_top",
+    )
+with col3:
+    # Interval options depend on selected period
+    interval_options = get_interval_options(period)
+    interval = st.selectbox(
+        "Interval",
+        interval_options,
+        index=0,  # first valid option
+        key="int_top",
+    )
 
 # ----------------------------
 # Session state init
@@ -63,23 +102,18 @@ if "stock_symbol" not in st.session_state:
     st.session_state.stock_symbol = None
 
 # ----------------------------
-# Helper function
-# ----------------------------
-def get_interval(p):
-    if p == "1d":
-        return "30m"
-    elif p == "1mo":
-        return "1h"
-    return "1d"
-
-# ----------------------------
 # Fetch Button
 # ----------------------------
 if st.button("Fetch Data"):
     with st.spinner("Fetching data..."):
         try:
-            interval = get_interval(period)
-            data = yf.download(symbol, period=period, interval=interval, progress=False, threads=False)
+            data = yf.download(
+                symbol,
+                period=period,
+                interval=interval,
+                progress=False,
+                threads=False,
+            )
             if isinstance(data.columns, pd.MultiIndex):
                 data.columns = [c[0] for c in data.columns]
             if data.empty:

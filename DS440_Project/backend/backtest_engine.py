@@ -73,7 +73,7 @@ def summarize_results(stats: pd.Series) -> Dict[str, Any]:
         return (stats.get(key, default) if hasattr(stats, "get") else default)
     return {
         "trades": int(val('# Trades', 0)),
-        "win_rate": float(val('% Win Rate', 0.0)),
+        "win_rate": float(val('Win Rate [%]', 0.0)),
         "expectancy": float(val('Expectancy', 0.0)),
         "avg_trade": float(val('Avg. Trade', 0.0)),
         "return_pct": float(val('Return [%]', 0.0)),
