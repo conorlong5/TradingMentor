@@ -59,15 +59,41 @@ button[data-testid="baseButton-secondary"]:hover {
 </style>
 """, unsafe_allow_html=True)
 
+st.markdown("""
+<style>
+/* Hide the entire sidebar */
+[data-testid="stSidebar"] {
+    display: none;
+}
+
+/* Hide the sidebar toggle (arrow) */
+[data-testid="stSidebarNav"] {
+    display: none;
+}
+
+button[kind="header"] {
+    display: none !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
+
 # ----------------------------
 # HEADER WITH BACK BUTTON
 # ----------------------------
-col_back, col_title = st.columns([1, 11])
+col_back, _ = st.columns([1, 11])
 with col_back:
-    if st.button("← Home"):
+    if st.button("← Home", use_container_width=True):
         st.switch_page("app.py")
-with col_title:
-    st.title("📊 Stock Data Viewer")
+
+st.markdown("""
+<h1 style='text-align:left; color:#27EEF5; margin-bottom:10px;'>
+    📊 Stock Data Viewer
+</h1>
+<p style='text-align:left; color:#b0b0b0; margin-top:-10px; margin-bottom:20px;'>
+    Let the LLM design a trading strategy for you, then backtest it.
+</p>
+""", unsafe_allow_html=True)
 
 # ----------------------------
 # Inputs
