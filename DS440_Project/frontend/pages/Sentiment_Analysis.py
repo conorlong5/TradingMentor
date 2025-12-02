@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 import plotly.graph_objects as go
 import plotly.express as px
 import pandas as pd
+from components.ai_drawer import render_ai_drawer
 
 st.set_page_config(page_title="Sentiment Analysis", layout="wide", initial_sidebar_state="collapsed")
 
@@ -641,3 +642,13 @@ else:
     - Increase the time period for more comprehensive analysis
     - Review individual articles to understand sentiment drivers
     """)
+
+
+render_ai_drawer(
+    context_hint=(
+        "Showing sentiment analysis "
+        "bullish, bearish"
+    ),
+    page_title="Sentiment Analysis",
+    key_prefix="strategy_ai",
+)

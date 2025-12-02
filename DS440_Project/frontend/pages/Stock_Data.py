@@ -3,6 +3,7 @@ import yfinance as yf
 import pandas as pd
 import plotly.graph_objects as go
 import ta
+from components.ai_drawer import render_ai_drawer
 
 # -------- interval options based on selected period --------
 def get_interval_options(period: str):
@@ -416,3 +417,13 @@ if st.session_state.stock_data is not None:
         use_container_width=True
     )
     st.markdown('</div>', unsafe_allow_html=True)
+
+render_ai_drawer(
+    context_hint=(
+        "Viewing historical price data, intervals, and basic indicators "
+        "like moving averages, volume, and price trends."
+    ),
+    page_title="Stock Data",
+    key_prefix="stock_ai",
+    expanded=False,   # start collapsed; user can open it
+)

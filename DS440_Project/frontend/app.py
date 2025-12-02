@@ -18,31 +18,31 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# Simple auto-refresh of the top timestamp
+# Optional simple auto-refresh
 if "last_update" not in st.session_state:
-    st.session_state.last_update = time.time()
+    st.session_state["last_update"] = time.time()
 
 current_time = time.time()
-if current_time - st.session_state.last_update > 60:
-    st.session_state.last_update = current_time
+if current_time - st.session_state["last_update"] > 60:
+    st.session_state["last_update"] = current_time
     st.rerun()
 
 st.markdown(
     f"""
     <p style='text-align:center; color:gray; font-size:12px; margin-bottom:10px;'>
-        Last updated: {datetime.now().strftime('%I:%M:%S %p')}
+        Last updated: {datetime.now().strftime("%I:%M:%S %p")}
     </p>
-""",
+    """,
     unsafe_allow_html=True,
 )
 
 # -------------------------------
-# GLOBAL STYLING
+# GLOBAL STYLES
 # -------------------------------
 st.markdown(
     """
 <style>
-/* Metric styling */
+/* Metric tweaks */
 [data-testid="stMetricLabel"] {
     font-weight: 700;
     font-size: 15px;
@@ -53,58 +53,53 @@ st.markdown(
     text-align: center;
 }
 
-/* Remove extra padding at very top */
+/* Remove a bit of top padding */
 .block-container {
     padding-top: 1.5rem;
 }
 
-/* ===== Explore cards ===== */
-.feature-card {
-    background: rgba(255, 255, 255, 0.02);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 16px;
-    padding: 20px 18px 16px 18px;
+/* Market index cards */
+.index-card {
+    border-radius: 18px;
+    border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(255,255,255,0.03);
+    padding: 18px 20px 12px 20px;
     text-align: center;
-    transition: all 0.18s ease-in-out;
-    box-shadow: 0 0 0 rgba(0,0,0,0);
 }
-.feature-card:hover {
-    border-color: rgba(39, 238, 245, 0.7);
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.35);
+
+/* App cards (for Explore section) */
+.app-card {
+    width: 100%;
+    text-align: center;
+    padding: 22px 10px 14px 10px;
+    border-radius: 18px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.08);
+    transition: all 0.2s ease;
+}
+
+.app-card:hover {
     transform: translateY(-3px);
+    box-shadow: 0 0 22px rgba(39,238,245,0.28);
+    border-color: rgba(39,238,245,0.7);
 }
-.feature-icon {
-    width: 56px;
-    height: 56px;
-    margin-bottom: 10px;
-}
-.feature-title {
-    font-size: 18px;
-    font-weight: 600;
-    margin-bottom: 4px;
-}
-.feature-desc {
+
+/* Caption text under icon/title */
+.card-caption {
+    text-align: center;
     font-size: 12px;
     color: #b0b0b0;
-    margin-bottom: 10px;
-}
-.feature-btn {
-    display: inline-block;
     margin-top: 4px;
 }
 
-/* Make the “Open” buttons compact */
-button[data-testid="baseButton-secondary"] {
-    padding: 4px 18px !important;
-}
-
-/* Center the quote text */
-.footer-quote {
-    text-align:center;
-    color:#b0b0b0;
-    font-style:italic;
-    font-size: 11px;
-    margin-top: 25px;
+/* Make our "Open" buttons full width and tidy */
+.app-open-button > button {
+    width: 100% !important;
+    border-radius: 10px !important;
+    padding-top: 10px !important;
+    padding-bottom: 10px !important;
+    font-size: 15px !important;
+    font-weight: 600 !important;
 }
 </style>
 """,
@@ -112,23 +107,23 @@ button[data-testid="baseButton-secondary"] {
 )
 
 # -------------------------------
-# HEADER / BRANDING
+# 🏷️ HEADER / BRANDING
 # -------------------------------
 st.markdown(
     """
-<h1 style='text-align:center; color:#27EEF5; margin-bottom:4px;'>
+<h1 style='text-align:center; color:#27EEF5; margin-bottom:0;'>
     🟢 Trading Mentor Pro 🟢
 </h1>
-<p style='text-align:center; font-size:16px; margin-top:0; color:#e0e0e0;'>
+<p style='text-align:center; font-size:16px; margin-top:4px;'>
     AI-powered insights for smarter trading decisions
 </p>
-<hr style="margin-top:10px; margin-bottom:25px;">
+<hr style="margin-top:15px; margin-bottom:25px;">
 """,
     unsafe_allow_html=True,
 )
 
 # -------------------------------
-# PERSONALIZED GREETING
+# 👋 GREETING
 # -------------------------------
 hour = datetime.now().hour
 if hour < 12:
@@ -139,203 +134,207 @@ else:
     greet = "Good evening"
 
 st.markdown(
-    f"<h4 style='text-align:center; margin-bottom:2px;'>👋 {greet}, Trader!</h4>",
+    f"<h3 style='text-align:center;'>👋 {greet}, Trader!</h3>",
     unsafe_allow_html=True,
 )
 st.markdown(
-    "<p style='text-align:center; font-size:12px; color:#b0b0b0;'>"
+    "<p style='text-align:center; font-size:12px; opacity:0.8;'>"
     "Welcome to your personal AI trading assistant — explore data, sentiment, and backtest your ideas below."
     "</p>",
     unsafe_allow_html=True,
 )
 
 # -------------------------------
-# MARKET SNAPSHOT
+# 📈 MARKET SNAPSHOT
 # -------------------------------
-def market_snapshot():
-    st.markdown(
-        "<h3 style='text-align:center; font-size:20px; margin-bottom:20px; color:#27EEF5;'>📊 Market Overview 📊</h3>",
-        unsafe_allow_html=True,
-    )
+def render_index_card(name: str, symbol: str):
+    try:
+        ticker = yf.Ticker(symbol)
+        hist = ticker.history(period="7d")
 
-    col1, col2, col3 = st.columns(3)
+        if len(hist) >= 2:
+            last_close = hist["Close"].iloc[-1]
+            prev_close = hist["Close"].iloc[-2]
+            change = ((last_close - prev_close) / prev_close) * 100
 
-    def render_card(name, symbol, col):
-        with col:
-            try:
-                ticker = yf.Ticker(symbol)
-                hist = ticker.history(period="7d")
+            color = "#00C853" if change > 0 else "#E53935"
+            arrow = "▲" if change > 0 else "▼"
+            border_color = (
+                "rgba(0, 200, 83, 0.4)" if change > 0 else "rgba(229, 57, 53, 0.4)"
+            )
 
-                if len(hist) >= 2:
-                    last_close = hist["Close"][-1]
-                    prev_close = hist["Close"][-2]
-                    change = ((last_close - prev_close) / prev_close) * 100
+            prices = gaussian_filter1d(hist["Close"].values, sigma=1)
+            fig, ax = plt.subplots(figsize=(3.2, 0.9))
+            fig.patch.set_alpha(0.0)
+            ax.set_facecolor("none")
+            ax.plot(prices, color=color, linewidth=2.4)
+            ax.fill_between(
+                range(len(prices)), prices, min(prices), color=color, alpha=0.25
+            )
+            for spine in ax.spines.values():
+                spine.set_visible(False)
+            ax.tick_params(
+                left=False,
+                bottom=False,
+                labelleft=False,
+                labelbottom=False,
+            )
+            ax.grid(False)
 
-                    color = "#00C853" if change > 0 else "#E53935"
-                    arrow = "▲" if change > 0 else "▼"
-                    border_color = (
-                        "rgba(0, 200, 83, 0.4)"
-                        if change > 0
-                        else "rgba(229, 57, 53, 0.4)"
-                    )
+            buf = BytesIO()
+            fig.savefig(buf, format="png", transparent=True, bbox_inches="tight")
+            buf.seek(0)
+            img_base64 = base64.b64encode(buf.read()).decode()
+            plt.close(fig)
 
-                    prices = gaussian_filter1d(hist["Close"].values, sigma=1)
-                    fig, ax = plt.subplots(figsize=(3.2, 0.9))
-                    fig.patch.set_alpha(0.0)
-                    ax.set_facecolor("none")
-                    ax.plot(prices, color=color, linewidth=2.2)
-                    ax.fill_between(
-                        range(len(prices)),
-                        prices,
-                        min(prices),
-                        color=color,
-                        alpha=0.18,
-                    )
-                    for spine in ax.spines.values():
-                        spine.set_visible(False)
-                    ax.tick_params(
-                        left=False,
-                        bottom=False,
-                        labelleft=False,
-                        labelbottom=False,
-                    )
-                    ax.grid(False)
+            st.markdown(
+                f"""
+                <div class="index-card" style="border-color:{border_color};">
+                    <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.12em; color:#aaaaaa;">
+                        {name}
+                    </div>
+                    <div style="font-size:24px; font-weight:700; margin-top:8px;">
+                        {last_close:,.2f}
+                    </div>
+                    <div style="font-size:13px; color:{color}; margin-bottom:6px; font-weight:600;">
+                        {arrow} {change:.2f}%
+                    </div>
+                    <img src="data:image/png;base64,{img_base64}" style="width:100%; max-width:260px;"/>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+        else:
+            st.markdown(
+                f"""
+                <div class="index-card">
+                    <div>{name}</div>
+                    <div style="font-size:14px; color:gray;">N/A</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+    except Exception:
+        st.markdown(
+            f"""
+            <div class="index-card">
+                <div>{name}</div>
+                <div style="font-size:14px; color:gray;">⚠️ Error</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
-                    buf = BytesIO()
-                    fig.savefig(
-                        buf, format="png", transparent=True, bbox_inches="tight", dpi=130
-                    )
-                    buf.seek(0)
-                    img_base64 = base64.b64encode(buf.read()).decode()
-                    plt.close(fig)
+st.markdown(
+    "<h3 style='text-align:center; margin-top:16px;'>📊 Market Overview 📊</h3>",
+    unsafe_allow_html=True,
+)
 
-                    st.markdown(
-                        f"""
-                        <div style='
-                            border: 2px solid {border_color};
-                            border-radius: 16px;
-                            padding: 18px 15px 14px 15px;
-                            background: linear-gradient(135deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.01) 100%);
-                            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25), 0 0 15px {border_color.replace("0.4", "0.15")};
-                            text-align: center;
-                            margin-bottom: 10px;
-                        '>
-                            <div style='text-align:center; line-height:1.4; margin-top:3px;'>
-                                <div style='font-weight:600; font-size:14px; color: #b0b0b0; text-transform: uppercase; letter-spacing: 0.05em;'>{name}</div>
-                                <div style='font-size:24px; font-weight:700; margin: 6px 0;'>{last_close:,.2f}</div>
-                                <div style='font-size:13px; color:{color}; font-weight: 600; margin-bottom: 8px;'>{arrow} {change:.2f}%</div>
-                            </div>
-                            <img src="data:image/png;base64,{img_base64}" style="width: 100%; max-width: 260px; margin-top: 4px;">
-                        </div>
-                    """,
-                        unsafe_allow_html=True,
-                    )
-                else:
-                    st.markdown(
-                        f"<div style='text-align:center; font-size:14px; color:gray; "
-                        f"border: 1px solid rgba(255,255,255,0.1); border-radius:12px; padding:20px;'>{name}<br>N/A</div>",
-                        unsafe_allow_html=True,
-                    )
-            except Exception:
-                st.markdown(
-                    f"<div style='text-align:center; font-size:14px; color:gray; "
-                    f"border: 1px solid rgba(255,255,255,0.1); border-radius:12px; padding:20px;'>{name}<br>⚠️ Error</div>",
-                    unsafe_allow_html=True,
-                )
+idx_col1, idx_col2, idx_col3 = st.columns(3)
+with idx_col1:
+    render_index_card("S&P 500", "^GSPC")
+with idx_col2:
+    render_index_card("NASDAQ", "^IXIC")
+with idx_col3:
+    render_index_card("DOW JONES", "^DJI")
 
-    render_card("S&P 500", "^GSPC", col1)
-    render_card("NASDAQ", "^IXIC", col2)
-    render_card("DOW JONES", "^DJI", col3)
-
-
-market_snapshot()
 st.divider()
 
 # -------------------------------
-# 🚀 EXPLORE THE PLATFORM – 2×2 GRID
+# 🚀 EXPLORE THE PLATFORM (2×2)
 # -------------------------------
 st.markdown(
     """
-    <h3 style='text-align:center; font-size:20px; color:#27EEF5; margin-bottom:4px;'>🚀 Explore the Platform 🚀</h3>
-    <p style='text-align:center; font-size:12px; color:#b0b0b0; margin-bottom:20px;'>
+    <h3 style='text-align:center; margin-bottom:0;'>🚀 Explore the Platform 🚀</h3>
+    <p style='text-align:center; font-size:12px; opacity:0.8; margin-top:4px;'>
         Choose a section to begin your analysis
     </p>
     """,
     unsafe_allow_html=True,
 )
 
-# Row 1
+# Row 1: Stock Data | Sentiment Analysis
 row1_col1, row1_col2 = st.columns(2)
-# Row 2
 row2_col1, row2_col2 = st.columns(2)
 
-# --- Card 1: Stock Data ---
+# ---- Card 1: Stock Data ----
 with row1_col1:
     st.markdown(
         """
-        <div class="feature-card">
-            <img class="feature-icon" src="https://cdn-icons-png.flaticon.com/512/3132/3132086.png">
-            <div class="feature-title">Stock Data</div>
-            <div class="feature-desc">
-                View charts, fundamentals,<br>and key ratios.
-            </div>
+        <div class="app-card">
+            <img src="https://cdn-icons-png.flaticon.com/512/3132/3132086.png"
+                 style="width:70px; margin-bottom:10px;"/>
+            <h4 style="margin:4px 0 2px 0;">Stock Data</h4>
+            <p class="card-caption">View charts, fundamentals, and key ratios.</p>
         </div>
         """,
         unsafe_allow_html=True,
     )
-    if st.button("Open", key="btn_stock_data"):
-        st.switch_page("pages/Stock_Data.py")
+    # real Streamlit button, full width via CSS above
+    btn_container = st.container()
+    with btn_container:
+        if st.button("Open", key="open_stock", use_container_width=True):
+            st.switch_page("pages/Stock_Data.py")
+    btn_container.markdown('<div class="app-open-button"></div>', unsafe_allow_html=True)
 
-# --- Card 2: Sentiment Analysis ---
+# ---- Card 2: Sentiment Analysis ----
 with row1_col2:
     st.markdown(
         """
-        <div class="feature-card">
-            <img class="feature-icon" src="https://cdn-icons-png.flaticon.com/512/3059/3059997.png">
-            <div class="feature-title">Sentiment Analysis</div>
-            <div class="feature-desc">
-                Analyze recent news sentiment<br>around your favorite stocks.
-            </div>
+        <div class="app-card">
+            <img src="https://cdn-icons-png.flaticon.com/512/3059/3059997.png"
+                 style="width:70px; margin-bottom:10px;"/>
+            <h4 style="margin:4px 0 2px 0;">Sentiment Analysis</h4>
+            <p class="card-caption">Analyze recent market news sentiment.</p>
         </div>
         """,
         unsafe_allow_html=True,
     )
-    if st.button("Open", key="btn_sentiment"):
-        st.switch_page("pages/Sentiment_Analysis.py")
+    btn_container = st.container()
+    with btn_container:
+        if st.button("Open", key="open_sentiment", use_container_width=True):
+            st.switch_page("pages/Sentiment_Analysis.py")
+    btn_container.markdown('<div class="app-open-button"></div>', unsafe_allow_html=True)
 
-# --- Card 3: Trading Strategy ---
+# ---- Card 3: Trading Strategy ----
 with row2_col1:
     st.markdown(
         """
-        <div class="feature-card">
-            <img class="feature-icon" src="https://cdn-icons-png.flaticon.com/512/4230/4230634.png">
-            <div class="feature-title">Trading Strategy</div>
-            <div class="feature-desc">
-                Generate AI-powered trading ideas<br>tailored to your style.
-            </div>
+        <div class="app-card">
+            <img src="https://cdn-icons-png.flaticon.com/512/4230/4230634.png"
+                 style="width:70px; margin-bottom:10px;"/>
+            <h4 style="margin:4px 0 2px 0;">Trading Strategy</h4>
+            <p class="card-caption">Generate AI-powered trading ideas.</p>
         </div>
         """,
         unsafe_allow_html=True,
     )
-    if st.button("Open", key="btn_trading_strategy"):
-        st.switch_page("pages/Trading_Strategy.py")
+    btn_container = st.container()
+    with btn_container:
+        if st.button("Open", key="open_trading_strategy", use_container_width=True):
+            st.switch_page("pages/Trading_Strategy.py")
+    btn_container.markdown('<div class="app-open-button"></div>', unsafe_allow_html=True)
 
-# --- Card 4: Backtest Strategy ---
+# ---- Card 4: Backtest Strategy ----
 with row2_col2:
     st.markdown(
         """
-        <div class="feature-card">
-            <img class="feature-icon" src="https://cdn-icons-png.flaticon.com/512/9841/9841552.png">
-            <div class="feature-title">Backtest Strategy</div>
-            <div class="feature-desc">
-                Backtest saved or custom rules<br>on historical data.
-            </div>
+        <div class="app-card">
+            <img src="https://cdn-icons-png.flaticon.com/512/10913/10913166.png"
+                 style="width:70px; margin-bottom:10px;"/>
+            <h4 style="margin:4px 0 2px 0;">Backtest Strategy</h4>
+            <p class="card-caption">Backtest saved or custom rules.</p>
         </div>
         """,
         unsafe_allow_html=True,
     )
-    if st.button("Open", key="btn_backtest_strategy"):
-        st.switch_page("pages/Backtest_Strategy.py")
+    btn_container = st.container()
+    with btn_container:
+        if st.button("Open", key="open_backtest", use_container_width=True):
+            st.switch_page("pages/Backtest_Strategy.py")
+    btn_container.markdown('<div class="app-open-button"></div>', unsafe_allow_html=True)
+
+st.divider()
 
 # -------------------------------
 # 💬 QUOTE / TIP OF THE DAY
@@ -347,8 +346,8 @@ quotes = [
     "“The four most dangerous words in investing are: This time it's different.” – Sir John Templeton",
     "“An investment in knowledge pays the best interest.” – Benjamin Franklin",
 ]
-
 st.markdown(
-    f"<p class='footer-quote'>{random.choice(quotes)}</p>",
+    f"<p style='text-align:center; color:white; font-style:italic; font-size:15px; margin-top:10px;'>"
+    f"{random.choice(quotes)}</p>",
     unsafe_allow_html=True,
 )

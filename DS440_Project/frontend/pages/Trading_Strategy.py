@@ -1,9 +1,12 @@
 import streamlit as st
 import json
+import os
+import sys
 from dotenv import load_dotenv
 import google.generativeai as genai
-import os
+from components.ai_drawer import render_ai_drawer
 
+# Load .env
 load_dotenv()
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
@@ -22,24 +25,6 @@ st.markdown("""
 <p style='text-align:left; color:#b0b0b0; margin-top:-10px; margin-bottom:20px;'>
     Let the LLM design a trading strategy for you, then backtest it.
 </p>
-""", unsafe_allow_html=True)
-
-st.markdown("""
-<style>
-/* Hide the entire sidebar */
-[data-testid="stSidebar"] {
-    display: none;
-}
-
-/* Hide the sidebar toggle (arrow) */
-[data-testid="stSidebarNav"] {
-    display: none;
-}
-
-button[kind="header"] {
-    display: none !important;
-}
-</style>
 """, unsafe_allow_html=True)
 
 
@@ -72,7 +57,13 @@ if st.button("Generate Strategy", key="btn_gen"):
     if not stock_name.strip() or not total_capital.strip() or not potential_profit.strip() or not risk_level.strip():
         st.warning("Please fill in all the required fields.")
     else:
-        # 1) Generate plain-English strategy
+        # Convert total_capital to float
+        try:
+            capital_float = float(total_capital) if total_capital.replace('.', '', 1).isdigit() else 10000.0
+        except:
+            capital_float = 10000.0
+        
+        # Experience level prompt
         if experience == "Beginner":
             exp_prompt = (
                 "Write the strategy in very simple, step-by-step language. Avoid jargon. "
@@ -89,7 +80,11 @@ if st.button("Generate Strategy", key="btn_gen"):
                 "Assume the user is an experienced trader."
             )
 
-        plain_prompt = f"""
+        model = genai.GenerativeModel("gemini-flash-latest")
+        
+        # 1) Generate plain-English strategy
+        with st.spinner("Generating strategy (plain English)..."):
+            plain_prompt = f"""
 You are a trading-strategy generator for a restricted backtesting engine.
 
 {exp_prompt}
@@ -111,16 +106,12 @@ User details:
 - Additional Details: {description}
 """
 
-        with st.spinner("Generating strategy (plain English)..."):
-            model = genai.GenerativeModel("gemini-flash-latest")
             resp = model.generate_content(plain_prompt)
             strategy_text = (resp.text or "_No strategy generated._").strip()
 
-        st.subheader("Generated Strategy (Plain English)")
-        st.write(strategy_text)
-
-        # 2) Generate HIDDEN JSON spec for the backtester
-        json_prompt = f"""
+        # 2) Generate JSON spec for backtesting
+        with st.spinner("Encoding strategy into JSON spec for backtesting..."):
+            json_prompt = f"""
 You are a trading strategy encoder for a Python backtesting engine.
 
 You are given the user's trading preferences and a natural-language trading strategy.
@@ -142,7 +133,7 @@ You MUST output ONLY a JSON object (no markdown, no backticks, no commentary) fo
 {{
   "name": "short name for this strategy",
   "stock_name": "ticker symbol like 'AAPL'",
-  "total_capital": {float(total_capital) if total_capital.replace('.', '', 1).isdigit() else 10000},
+  "total_capital": {capital_float},
   "params": {{
     "fast": 10,
     "slow": 30,
@@ -168,27 +159,33 @@ Rules:
 Output VALID JSON only.
 """
 
-        try:
-            with st.spinner("Encoding strategy into JSON spec for backtesting..."):
+            try:
                 json_resp = model.generate_content(json_prompt)
                 raw_json = json_resp.text.strip()
+                
+                # Clean JSON (remove markdown if present)
+                if "```json" in raw_json:
+                    raw_json = raw_json.split("```json")[1].split("```")[0].strip()
+                elif "```" in raw_json:
+                    raw_json = raw_json.split("```")[1].split("```")[0].strip()
+                
                 strategy_json = json.loads(raw_json)
-        except Exception:
-            # Fallback JSON spec if parsing fails
-            strategy_json = {
-                "name": f"LLM Strategy for {stock_name}",
-                "stock_name": stock_name,
-                "total_capital": float(total_capital) if total_capital.replace('.', '', 1).isdigit() else 10000.0,
-                "params": {
-                    "fast": 10,
-                    "slow": 30,
-                    "rsi": 14,
-                    "rsi_buy": 55,
-                    "rsi_sell": 70,
-                },
-                "entry": "crossover(SMA_fast, SMA_slow) and RSI > rsi_buy",
-                "exit": "RSI > rsi_sell or crossover(SMA_slow, SMA_fast)",
-            }
+            except Exception:
+                # Fallback JSON spec if parsing fails
+                strategy_json = {
+                    "name": f"LLM Strategy for {stock_name}",
+                    "stock_name": stock_name,
+                    "total_capital": capital_float,
+                    "params": {
+                        "fast": 10,
+                        "slow": 30,
+                        "rsi": 14,
+                        "rsi_buy": 55,
+                        "rsi_sell": 70,
+                    },
+                    "entry": "crossover(SMA_fast, SMA_slow) and RSI > rsi_buy",
+                    "exit": "RSI > rsi_sell or crossover(SMA_slow, SMA_fast)",
+                }
 
         # Store both text + JSON in session
         st.session_state.generated_strategy = {
@@ -196,13 +193,28 @@ Output VALID JSON only.
             "json": strategy_json,
         }
         st.session_state.strategy_type = "llm_spec"
-        st.success("Strategy generated and encoded for backtesting!")
+        
+        # Show success message and strategy description
+        st.success("✅ Strategy generated successfully!")
+        st.info("💡 Go to Backtest page to view detailed results and performance metrics.")
+        
+        # Show strategy description
+        st.markdown("### 📋 Strategy Description")
+        st.markdown(
+            """
+            <div style='background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.12); 
+                       padding: 20px; border-radius: 12px; margin-top: 10px;'>
+            """,
+            unsafe_allow_html=True
+        )
+        st.write(strategy_text)
+        st.markdown("</div>", unsafe_allow_html=True)
+        
+        # Auto-save strategy
+        st.session_state.saved_strategies[strategy_save_name] = st.session_state.generated_strategy
 
-        if st.button("Go to Backtest Page"):
-            st.switch_page("pages/Backtest_Strategy.py")
-
-# -------------------- SAVE STRATEGY --------------------
-if st.button("Save Strategy", key="btn_save_strategy_bottom"):
+# -------------------- SAVE STRATEGY (Optional - for renaming) --------------------
+if st.button("Save Strategy with Different Name", key="btn_save_strategy_bottom"):
     if 'generated_strategy' in st.session_state and st.session_state.generated_strategy:
         st.session_state.saved_strategies[strategy_save_name] = st.session_state.generated_strategy
         st.success(f"Strategy saved as '{strategy_save_name}'!")
@@ -211,14 +223,24 @@ if st.button("Save Strategy", key="btn_save_strategy_bottom"):
 
 # -------------------- SHOW SAVED STRATEGIES --------------------
 if st.session_state.saved_strategies:
-    st.markdown("### Saved Strategies")
+    st.divider()
+    st.markdown("### 📁 Saved Strategies")
+    st.caption("Click on a strategy to view its description, or go to Backtest page to see full results.")
     for name, strat in st.session_state.saved_strategies.items():
         with st.expander(name):
-            st.write("**Plain English Strategy:**")
+            st.write("**Strategy Description:**")
             st.write(strat.get("text", ""))
-            st.write("**(Hidden) JSON Spec Preview:**")
-            st.json(strat.get("json", {}))
-            if st.button(f"Backtest '{name}'", key=f"backtest_{name}"):
+            if st.button(f"📈 Backtest '{name}'", key=f"backtest_{name}"):
                 st.session_state.generated_strategy = strat
                 st.session_state.strategy_type = "llm_spec"
                 st.switch_page("pages/Backtest_Strategy.py")
+
+
+render_ai_drawer(
+    context_hint=(
+        "Generating and backtesting trading strategies using SMA, RSI, "
+        "win rate, drawdown, and other performance metrics."
+    ),
+    page_title="Trading Strategy",
+    key_prefix="strategy_ai",
+)
