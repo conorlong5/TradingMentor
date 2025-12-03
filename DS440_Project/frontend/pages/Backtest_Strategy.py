@@ -1,26 +1,15 @@
 import os
 import sys
-
-# ------------------------------
-# LOAD .env FIRST (before ANY AI imports)
-# ------------------------------
 from dotenv import load_dotenv
 ENV_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.env"))
 load_dotenv(ENV_PATH)
 
-# Now your Google API key is available
 GOOGLE_API_KEY = os.getenv("GEMINI_API_KEY")
 
-# ------------------------------
-# Now import AI libraries
-# ------------------------------
 import google.generativeai as genai
 if GOOGLE_API_KEY:
     genai.configure(api_key=GOOGLE_API_KEY)
 
-# ------------------------------
-# Now import the rest
-# ------------------------------
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -29,11 +18,9 @@ import yfinance as yf
 from typing import Union
 from components.ai_drawer import render_ai_drawer
 
-# backend
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
 from backend.backtest_engine import run_backtest, fetch_ohlcv
 
-# Helper function for safe JSON serialization
 def _safe_json(obj):
     try:
         return json.dumps(obj, indent=2, default=str)
@@ -42,15 +29,8 @@ def _safe_json(obj):
             return json.dumps({k: str(v) for k, v in obj.items()}, indent=2)
         return str(obj)
 
-
-# -------------------------------------------------
-# PAGE CONFIG
-# -------------------------------------------------
 st.set_page_config(page_title="Backtest Strategy", layout="wide")
 
-# -------------------------------------------------
-# STYLES
-# -------------------------------------------------
 st.markdown(
     """
 <style>
@@ -98,9 +78,6 @@ button[kind="header"] {
 """, unsafe_allow_html=True)
 
 
-# -------------------------------------------------
-# HEADER
-# -------------------------------------------------
 col_back, _ = st.columns([1, 10])
 with col_back:
     if st.button("← Home", use_container_width=True):
@@ -112,9 +89,6 @@ st.divider()
 if not GOOGLE_API_KEY:
     st.warning("GOOGLE_API_KEY not set in your .env file. AI summaries will be disabled.")
 
-# -------------------------------------------------
-# HELPER FUNCTIONS
-# -------------------------------------------------
 def extract_json_block(text: str):
     """
     Try to extract a JSON object from a Gemini response.
@@ -125,7 +99,6 @@ def extract_json_block(text: str):
     if not text:
         return None
     
-    # Strip code fences if present
     t = text.strip()
     if t.startswith("```"):
         t = t.strip("` \n")
@@ -173,7 +146,7 @@ def get_min_trades_for_period(period: str) -> int:
         "1y": 10,
         "2y": 15,
         "5y": 25,
-        "max": 30,  # For maximum historical data, expect at least 30 trades
+        "max": 30,  
     }
     return min_trades_map.get(period, 10)
 
@@ -186,22 +159,17 @@ def adjust_spec_for_more_trades(spec: dict, adjustment_level: int = 1) -> dict:
     adjusted_spec = spec.copy()
     params = adjusted_spec.get("params", {}).copy()
     
-    # Adjust RSI thresholds to be more sensitive (wider range = more signals)
     if adjustment_level == 1:
-        # Mild: Expand RSI buy range, tighten sell range
         params["rsi_buy"] = max(20, params.get("rsi_buy", 30) - 10)
         params["rsi_sell"] = min(80, params.get("rsi_sell", 70) + 10)
-        # Make SMAs closer together for more crossovers
         params["fast"] = max(5, params.get("fast", 10) - 2)
         params["slow"] = min(50, params.get("slow", 30) + 5)
     elif adjustment_level == 2:
-        # Moderate: More aggressive adjustments
         params["rsi_buy"] = max(15, params.get("rsi_buy", 30) - 15)
         params["rsi_sell"] = min(85, params.get("rsi_sell", 70) + 15)
         params["fast"] = max(5, params.get("fast", 10) - 3)
         params["slow"] = min(40, params.get("slow", 30) + 3)
     else:
-        # Aggressive: Very sensitive
         params["rsi_buy"] = max(10, params.get("rsi_buy", 30) - 20)
         params["rsi_sell"] = min(90, params.get("rsi_sell", 70) + 20)
         params["fast"] = max(5, params.get("fast", 10) - 4)
@@ -209,17 +177,14 @@ def adjust_spec_for_more_trades(spec: dict, adjustment_level: int = 1) -> dict:
     
     adjusted_spec["params"] = params
     
-    # Adjust entry/exit conditions to be less restrictive
     entry = adjusted_spec.get("entry", "")
     exit_expr = adjusted_spec.get("exit", "")
     
-    # Make entry easier (lower RSI threshold in condition)
     if "RSI < rsi_buy" in entry:
         entry = entry.replace("RSI < rsi_buy", "RSI <= rsi_buy")
     elif "RSI > rsi_buy" in entry:
         entry = entry.replace("RSI > rsi_buy", "RSI >= rsi_buy")
     
-    # Make exit easier (higher RSI threshold in condition)
     if "RSI > rsi_sell" in exit_expr:
         exit_expr = exit_expr.replace("RSI > rsi_sell", "RSI >= rsi_sell")
     elif "RSI < rsi_sell" in exit_expr:
@@ -240,7 +205,6 @@ def analyze_time_based_performance(trades_df: pd.DataFrame, equity_df: pd.DataFr
         return "Insufficient data for time-based analysis."
     
     try:
-        # Get date range
         if hasattr(data_start_date, 'strftime'):
             start_year = data_start_date.year
         else:
@@ -251,15 +215,12 @@ def analyze_time_based_performance(trades_df: pd.DataFrame, equity_df: pd.DataFr
         else:
             end_year = pd.to_datetime(data_end_date).year if data_end_date else None
         
-        # Calculate midpoint
         if start_year and end_year:
             total_years = end_year - start_year
             midpoint_year = start_year + (total_years // 2)
         else:
             midpoint_year = None
         
-        # Analyze trades by time period
-        # Try to get date column from trades
         trade_dates = None
         if 'EntryTime' in trades_df.columns:
             trade_dates = pd.to_datetime(trades_df['EntryTime'])
@@ -269,14 +230,11 @@ def analyze_time_based_performance(trades_df: pd.DataFrame, equity_df: pd.DataFr
             trade_dates = trades_df.index
         
         if trade_dates is not None and midpoint_year:
-            # Split into first half and second half
             midpoint_date = pd.Timestamp(f"{midpoint_year}-01-01")
             first_half = trades_df[trade_dates < midpoint_date]
             second_half = trades_df[trade_dates >= midpoint_date]
             
             if len(first_half) > 0 and len(second_half) > 0:
-                # Calculate win rates for each period
-                # Try to find PnL or return column
                 pnl_col = None
                 for col in trades_df.columns:
                     if 'pnl' in col.lower() or 'return' in col.lower():
@@ -292,18 +250,15 @@ def analyze_time_based_performance(trades_df: pd.DataFrame, equity_df: pd.DataFr
                     second_half_total = len(second_half)
                     second_half_win_rate = (second_half_wins / second_half_total * 100) if second_half_total > 0 else 0
                     
-                    # Calculate average returns
                     first_half_avg_return = first_half[pnl_col].mean() if len(first_half) > 0 else 0
                     second_half_avg_return = second_half[pnl_col].mean() if len(second_half) > 0 else 0
-                    
-                    # Build description
+
                     description = f"""
 Time Period Analysis:
 - First Half ({start_year}-{midpoint_year-1}): {first_half_total} trades, {first_half_win_rate:.1f}% win rate, avg return: ${first_half_avg_return:.2f}
 - Second Half ({midpoint_year}-{end_year}): {second_half_total} trades, {second_half_win_rate:.1f}% win rate, avg return: ${second_half_avg_return:.2f}
 """
                     
-                    # Add interpretation
                     if first_half_win_rate > second_half_win_rate + 5 and first_half_avg_return > second_half_avg_return:
                         description += "\nThe strategy performed better in the earlier period (first half) compared to recent years."
                     elif second_half_win_rate > first_half_win_rate + 5 and second_half_avg_return > first_half_avg_return:
@@ -329,7 +284,6 @@ def describe_parameter_changes(original_spec: dict, adjusted_spec: dict) -> str:
     adj_params = adjusted_spec.get("params", {})
     changes = []
     
-    # Compare parameters
     if orig_params.get("fast") != adj_params.get("fast"):
         changes.append(f"SMA Fast period: {orig_params.get('fast')} → {adj_params.get('fast')}")
     
@@ -342,7 +296,6 @@ def describe_parameter_changes(original_spec: dict, adjusted_spec: dict) -> str:
     if orig_params.get("rsi_sell") != adj_params.get("rsi_sell"):
         changes.append(f"RSI Sell threshold: {orig_params.get('rsi_sell')} → {adj_params.get('rsi_sell')}")
     
-    # Check entry/exit condition changes
     orig_entry = original_spec.get("entry", "")
     adj_entry = adjusted_spec.get("entry", "")
     if orig_entry != adj_entry:
@@ -367,23 +320,18 @@ def text_to_spec_llm(strategy_text: str, symbol: str, cash: float):
     if not GOOGLE_API_KEY:
         return default_spec(symbol, cash)
 
-    # Create cache key from strategy text, symbol, and cash
     import hashlib
     cache_key = hashlib.md5(f"{strategy_text.strip()}_{symbol}_{cash}".encode()).hexdigest()
     
-    # Initialize cache in session state if not exists
     if "strategy_spec_cache" not in st.session_state:
         st.session_state.strategy_spec_cache = {}
     
-    # Check if we have a cached spec for this exact strategy
     if cache_key in st.session_state.strategy_spec_cache:
-        # Return cached spec (ensures consistent results)
         cached_spec = st.session_state.strategy_spec_cache[cache_key].copy()
-        cached_spec["stock_name"] = symbol  # Update symbol in case it changed
-        cached_spec["cash"] = cash  # Update cash in case it changed
+        cached_spec["stock_name"] = symbol 
+        cached_spec["cash"] = cash  
         return cached_spec
 
-    # Generate new spec using LLM
     prompt = f"""
 You are a trading-strategy JSON generator for a backtesting engine.
 
@@ -438,12 +386,10 @@ The strategy description is:
             spec.setdefault("entry", fallback["entry"])
             spec.setdefault("exit", fallback["exit"])
         
-        # Cache the spec for future use
         st.session_state.strategy_spec_cache[cache_key] = spec.copy()
         return spec
     except Exception:
         spec = default_spec(symbol, cash)
-        # Cache even the fallback spec
         st.session_state.strategy_spec_cache[cache_key] = spec.copy()
         return spec
 
@@ -457,14 +403,12 @@ def build_trade_summary(trades_df: pd.DataFrame, initial_capital: float):
 
     cols_lower = [c.lower() for c in trades_df.columns]
 
-    # PnL column
     pnl_col = None
     for cand in ["pnl", "pnl$", "pnl (inc. commission)"]:
         if cand.lower() in cols_lower:
             pnl_col = trades_df.columns[cols_lower.index(cand.lower())]
             break
 
-    # Return % column
     ret_col = None
     for cand in ["return[%]", "return [%]", "returnpct", "return"]:
         if cand.lower().replace(" ", "") in [c.replace(" ", "") for c in cols_lower]:
@@ -475,7 +419,6 @@ def build_trade_summary(trades_df: pd.DataFrame, initial_capital: float):
             if ret_col:
                 break
 
-    # Size / shares
     size_col = None
     for cand in ["size", "shares", "qty"]:
         if cand.lower() in cols_lower:
@@ -651,17 +594,10 @@ Tone: friendly, practical, and non-promissory. Do not guarantee profits.
     except Exception as e:
         st.warning(f"Couldn't generate explanation: {e}")
 
-
-# -------------------------------------------------
-# TABS
-# -------------------------------------------------
 tab_saved, tab_custom = st.tabs(
     ["📂 Backtest Saved Strategies", "✍️ Backtest Your Own Strategy"]
 )
 
-# =================================================
-# TAB 1 — BACKTEST SAVED STRATEGIES
-# =================================================
 with tab_saved:
     st.markdown("### 📁 Choose a Saved Strategy")
 
@@ -677,7 +613,6 @@ with tab_saved:
         strategy_text = chosen_strategy.get("text", "")
         base_json = chosen_strategy.get("json", {})
 
-        # Only show name + small note (no full description here)
         st.markdown(
             f"""
             <div class="section-box">
@@ -709,7 +644,7 @@ with tab_saved:
             period = st.selectbox(
                 "Backtest Lookback",
                 ["6mo", "1y", "2y", "5y"],
-                index=1,  # default to 1y
+                index=1,  
                 key="saved_period",
             )
 
@@ -720,10 +655,8 @@ with tab_saved:
         if st.button("Run Backtest (Saved Strategy)", type="primary"):
             with st.spinner("Running backtest..."):
                 try:
-                    # Use the saved JSON spec directly (no LLM conversion needed)
                     spec = base_json.copy()
 
-                    # Ensure required fields exist with fallbacks
                     if "params" not in spec or not spec["params"]:
                         spec["params"] = {
                             "fast": 10,
@@ -739,26 +672,22 @@ with tab_saved:
                     if "exit" not in spec or not spec.get("exit"):
                         spec["exit"] = "crossover(SMA_slow, SMA_fast) or RSI > rsi_sell"
 
-                    # Update symbol and name for display purposes
                     spec["stock_name"] = symbol
                     spec["name"] = spec.get("name", chosen_name)
 
-                    # Fetch data to know number of points used
                     data = fetch_ohlcv(symbol, period=period, interval="1d")
 
-                    # Basic safety check for newer stocks (very little history)
                     if len(data) < 60:
                         st.warning(
                             f"Only {len(data)} daily candles available for {symbol} over {period}. "
                             "Please select a shorter lookback or choose a more established stock."
                         )
-                        st.stop()  # stop this run cleanly
+                        st.stop()  
 
                     data_points = len(data)
                     data_start_date = data.index[0] if len(data) > 0 else None
                     data_end_date = data.index[-1] if len(data) > 0 else None
 
-                    # Run backtest once, as-is
                     bt_result, trades_df, equity_df = run_backtest(
                         symbol=symbol,
                         mode="spec",
@@ -772,7 +701,6 @@ with tab_saved:
                     win_rate = bt_result.get("win_rate", 0.0)
                     min_trades = get_min_trades_for_period(period)
 
-                    # Warn if sample size is low, but do NOT change the strategy
                     if total_trades < min_trades:
                         st.warning(
                             f"Strategy only generated {total_trades} trades "
@@ -781,31 +709,18 @@ with tab_saved:
                             "Consider loosening your entry rules or using a different symbol/timeframe."
                         )
 
-                    # ---------- Standard results (same as custom tab) ----------
                     st.markdown("## 📊 Backtest Results (Saved Strategy)")
 
-                    # Show data points metric above the shared results block
                     st.metric("Data Points Used", data_points)
 
-                    # This draws: Return %, Trades, Win Rate, Sharpe, Max DD, Buy & Hold,
-                    # equity curve chart, full trades table + CSV download
                     _show_results(bt_result, trades_df, equity_df)
 
-                    render_strategy_explanation_with_gemini(
-                        symbol=symbol,
-                        spec_or_code=spec,
-                        is_json_spec=True,
-                        results=bt_result,
-                        period=period,
-                        interval="1d",
-                    )
+                    
 
-                    # ---------- Trade highlights (top/bottom 3) ----------
                     detailed_trades = build_trade_summary(trades_df, initial_capital)
                     st.markdown("## 🧾 Trade Highlights")
                     render_trade_lists(detailed_trades)
 
-                    # ---------- AI explanation ----------
                     st.markdown("## 🧠 Backtest Summary (AI)")
                     if not GOOGLE_API_KEY:
                         st.warning("Set GOOGLE_API_KEY in your .env file to enable AI summaries.")
@@ -862,9 +777,6 @@ Max Drawdown [%]: {bt_result.get('max_drawdown_pct', 0.0):.2f}
                 except Exception as e:
                     st.error(f"Backtest failed: {e}")
 
-# =================================================
-# TAB 2 — USER-WRITTEN STRATEGY (PLAIN ENGLISH)
-# =================================================
 with tab_custom:
     st.markdown("### ✍️ Write a Strategy to Backtest")
     
@@ -893,7 +805,7 @@ with tab_custom:
         custom_period = st.selectbox(
             "Backtest Lookback",
             ["6mo", "1y", "2y", "5y"],
-            index=1,  # default to 1y
+            index=1,  
             key="custom_period",
         )
 
@@ -970,7 +882,6 @@ USER STRATEGY DESCRIPTION:
                     st.markdown("#### Parsed JSON")
                     st.code(json.dumps(custom_spec, indent=2), language="json")
 
-                    # Simple structural validation
                     required_keys = {"name", "params", "entry", "exit"}
                     if not required_keys.issubset(custom_spec.keys()):
                         st.warning(
@@ -978,10 +889,8 @@ USER STRATEGY DESCRIPTION:
                             "Refine your description or try again."
                         )
                     else:
-                        # Run backtest
                         data2 = fetch_ohlcv(custom_symbol, period=custom_period, interval=custom_interval)
 
-                        # Basic safety check for newer stocks (very little history)
                         if len(data2) < 60:
                             st.warning(
                                 f"Only {len(data2)} daily candles available for {custom_symbol} over {custom_period}. "
@@ -1002,7 +911,6 @@ USER STRATEGY DESCRIPTION:
                         st.success("✅ Backtest complete")
                         _show_results(bt_res2, trades2_df, eq2_df)
                         
-                        # Show strategy explanation
                         render_strategy_explanation_with_gemini(
                             symbol=custom_symbol,
                             spec_or_code=custom_spec,

@@ -16,7 +16,6 @@ class JSONStrategy(bt.Strategy):
     )
 
     def __init__(self):
-        # Use close price for SMAs
         self.sma_fast = bt.indicators.SimpleMovingAverage(
             self.datas[0].close, period=self.p.fast
         )
@@ -30,11 +29,8 @@ class JSONStrategy(bt.Strategy):
         self.pnl_list = []
 
     def next(self):
-        # Golden cross: fast above slow -> go long if flat
         if self.sma_fast[0] > self.sma_slow[0] and not self.position:
             self.buy()
-
-        # Death cross: fast below slow -> close long if in position
         elif self.sma_fast[0] < self.sma_slow[0] and self.position:
             self.sell()
 
@@ -75,12 +71,10 @@ def run_backtrader_backtest(df: pd.DataFrame, strategy_params: dict):
         }
     """
 
-    # Pull params with defaults
     fast = int(strategy_params.get("fast", 10))
     slow = int(strategy_params.get("slow", 30))
     cash = float(strategy_params.get("cash", 10000))
 
-    # Basic sanity: make sure index is datetime
     if not isinstance(df.index, (pd.DatetimeIndex,)):
         df = df.copy()
         df.index = pd.to_datetime(df.index)
@@ -90,12 +84,10 @@ def run_backtrader_backtest(df: pd.DataFrame, strategy_params: dict):
     data = bt.feeds.PandasData(dataname=df)
     cerebro.adddata(data)
 
-    # Pass only the params the Strategy expects
     cerebro.addstrategy(JSONStrategy, fast=fast, slow=slow)
 
     cerebro.broker.set_cash(cash)
 
-    # Run backtest
     result = cerebro.run()
     strat_obj = result[0]
 

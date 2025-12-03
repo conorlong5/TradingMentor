@@ -1,13 +1,9 @@
-# frontend/components/ai_drawer.py
-
 import os
 from typing import Optional
-
 import streamlit as st
 import google.generativeai as genai
 from dotenv import load_dotenv
 
-# Load .env once
 if "AI_DRAWER_LOADED" not in st.session_state:
     load_dotenv()
     api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
@@ -28,8 +24,6 @@ def render_ai_drawer(
 
     Call this ONCE near the bottom of each page.
     """
-
-    # --- Simple styling to keep right column relatively narrow ---
     st.markdown(
         """
         <style>
@@ -45,11 +39,8 @@ def render_ai_drawer(
         unsafe_allow_html=True,
     )
 
-    # Layout: 3/1 columns → helper lives in the right column
     main_col, helper_col, sec_col = st.columns([0.000000000000000000000000000000000000000000000000000000000000000000000000000001, 1000000000000, 0.000000000000000000000000000000000000000000000000000000000000000000000000000001])
 
-    # We don't actually put anything in main_col here; your page content
-    # will already be above. We just "attach" the drawer to the right.
     with helper_col:
         with st.expander("💬 Ask the Trading Mentor", expanded=expanded):
             st.markdown(

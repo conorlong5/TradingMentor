@@ -8,9 +8,7 @@ import base64
 from io import BytesIO
 import time
 
-# -------------------------------
-# 🎨 PAGE CONFIGURATION
-# -------------------------------
+
 st.set_page_config(
     page_title="Trading Mentor Pro",
     page_icon="💹",
@@ -18,7 +16,6 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# Optional simple auto-refresh
 if "last_update" not in st.session_state:
     st.session_state["last_update"] = time.time()
 
@@ -36,9 +33,6 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# -------------------------------
-# GLOBAL STYLES
-# -------------------------------
 st.markdown(
     """
 <style>
@@ -106,9 +100,6 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# -------------------------------
-# 🏷️ HEADER / BRANDING
-# -------------------------------
 st.markdown(
     """
 <h1 style='text-align:center; color:#27EEF5; margin-bottom:0;'>
@@ -122,9 +113,6 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# -------------------------------
-# 👋 GREETING
-# -------------------------------
 hour = datetime.now().hour
 if hour < 12:
     greet = "Good morning"
@@ -144,9 +132,6 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# -------------------------------
-# 📈 MARKET SNAPSHOT
-# -------------------------------
 def render_index_card(name: str, symbol: str):
     try:
         ticker = yf.Ticker(symbol)
@@ -240,9 +225,6 @@ with idx_col3:
 
 st.divider()
 
-# -------------------------------
-# 🚀 EXPLORE THE PLATFORM (2×2)
-# -------------------------------
 st.markdown(
     """
     <h3 style='text-align:center; margin-bottom:0;'>🚀 Explore the Platform 🚀</h3>
@@ -253,11 +235,9 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Row 1: Stock Data | Sentiment Analysis
 row1_col1, row1_col2 = st.columns(2)
 row2_col1, row2_col2 = st.columns(2)
 
-# ---- Card 1: Stock Data ----
 with row1_col1:
     st.markdown(
         """
@@ -270,14 +250,12 @@ with row1_col1:
         """,
         unsafe_allow_html=True,
     )
-    # real Streamlit button, full width via CSS above
     btn_container = st.container()
     with btn_container:
         if st.button("Open", key="open_stock", use_container_width=True):
             st.switch_page("pages/Stock_Data.py")
     btn_container.markdown('<div class="app-open-button"></div>', unsafe_allow_html=True)
 
-# ---- Card 2: Sentiment Analysis ----
 with row1_col2:
     st.markdown(
         """
@@ -296,7 +274,6 @@ with row1_col2:
             st.switch_page("pages/Sentiment_Analysis.py")
     btn_container.markdown('<div class="app-open-button"></div>', unsafe_allow_html=True)
 
-# ---- Card 3: Trading Strategy ----
 with row2_col1:
     st.markdown(
         """
@@ -315,7 +292,6 @@ with row2_col1:
             st.switch_page("pages/Trading_Strategy.py")
     btn_container.markdown('<div class="app-open-button"></div>', unsafe_allow_html=True)
 
-# ---- Card 4: Backtest Strategy ----
 with row2_col2:
     st.markdown(
         """
@@ -336,9 +312,6 @@ with row2_col2:
 
 st.divider()
 
-# -------------------------------
-# 💬 QUOTE / TIP OF THE DAY
-# -------------------------------
 quotes = [
     "“The key to making money in stocks is not to get scared out of them.” – Peter Lynch",
     "“Amateurs want to be right. Professionals want to make money.” – Alan Greenspan",

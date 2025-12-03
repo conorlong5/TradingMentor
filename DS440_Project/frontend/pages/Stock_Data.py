@@ -5,7 +5,6 @@ import plotly.graph_objects as go
 import ta
 from components.ai_drawer import render_ai_drawer
 
-# -------- interval options based on selected period --------
 def get_interval_options(period: str):
     """
     Return valid Yahoo/yfinance interval options for a given period.
@@ -17,23 +16,16 @@ def get_interval_options(period: str):
       - 1d+: many years
     """
     if period in ["1d", "5d"]:
-        # very short history: allow full intraday range
         return ["1m", "2m", "5m", "15m", "30m", "1h", "1d"]
     elif period in ["1mo"]:
-        # one month: 1m is too long; 2m/5m/15m/30m/1h/1d are ok-ish
         return ["2m", "5m", "15m", "30m", "1h", "1d"]
     elif period in ["3mo", "6mo"]:
-        # 3–6 months: stick to 30m/1h/1d
         return ["30m", "1h", "1d"]
-    else:  # "1y", "2y", or anything longer
+    else:  
         return ["1h", "1d"]
-# -----------------------------------------------------------
 
 st.set_page_config(page_title="Stock Data", layout="wide")
 
-# ----------------------------
-# CUSTOM STYLING
-# ----------------------------
 st.markdown("""
 <style>
 /* Card-style containers for sections */
@@ -79,9 +71,6 @@ button[kind="header"] {
 """, unsafe_allow_html=True)
 
 
-# ----------------------------
-# HEADER WITH BACK BUTTON
-# ----------------------------
 col_back, _ = st.columns([1, 11])
 with col_back:
     if st.button("← Home", use_container_width=True):
@@ -96,41 +85,30 @@ st.markdown("""
 </p>
 """, unsafe_allow_html=True)
 
-# ----------------------------
-# Inputs
-# ----------------------------
 col1, col2, col3 = st.columns(3)
 with col1:
     symbol = st.text_input("Enter a Stock Symbol (e.g. AAPL, TSLA, NVDA):", "AAPL")
 with col2:
-    # Expanded period options
     period = st.selectbox(
         "History",
         ["1d", "5d", "1mo", "3mo", "6mo", "1y", "2y"],
-        index=2,  # default to "1mo" (or whatever you prefer)
+        index=2,  
         key="period_top",
     )
 with col3:
-    # Interval options depend on selected period
     interval_options = get_interval_options(period)
     interval = st.selectbox(
         "Interval",
         interval_options,
-        index=0,  # first valid option
+        index=0,  
         key="int_top",
     )
 
-# ----------------------------
-# Session state init
-# ----------------------------
 if "stock_data" not in st.session_state:
     st.session_state.stock_data = None
 if "stock_symbol" not in st.session_state:
     st.session_state.stock_symbol = None
 
-# ----------------------------
-# Fetch Button
-# ----------------------------
 if st.button("Fetch Data"):
     with st.spinner("Fetching data..."):
         try:
@@ -147,7 +125,6 @@ if st.button("Fetch Data"):
                 st.error("⚠️ No data found. Try a different symbol or longer period.")
                 st.stop()
 
-            # Compute SMAs
             data["SMA_50"] = data["Close"].rolling(window=50).mean()
             data["SMA_200"] = data["Close"].rolling(window=200).mean()
 
@@ -156,16 +133,10 @@ if st.button("Fetch Data"):
         except Exception as e:
             st.error(f"Error fetching data: {e}")
 
-# ----------------------------
-# Display Section
-# ----------------------------
 if st.session_state.stock_data is not None:
     data = st.session_state.stock_data
     symbol = st.session_state.stock_symbol
 
-    # -----------------------------------
-    # SIDEBAR WITH QUICK STATS
-    # -----------------------------------
     with st.sidebar:
         st.markdown("### 📊 Quick Stats")
         latest = data.iloc[-1]
@@ -173,20 +144,15 @@ if st.session_state.stock_data is not None:
         st.metric("Day Range", f"${latest['Low']:.2f} - ${latest['High']:.2f}")
         st.metric("Volume", f"{int(latest['Volume']):,}")
         
-        # Price change
         if len(data) >= 2:
             prev_close = data.iloc[-2]["Close"]
             change = latest["Close"] - prev_close
             change_pct = (change / prev_close) * 100
             st.metric("Change", f"${change:.2f}", f"{change_pct:+.2f}%")
 
-    # -----------------------------------
-    # 📈 STOCK CHART WITH VOLUME
-    # -----------------------------------
     st.markdown('<div class="metric-card">', unsafe_allow_html=True)
     st.markdown("### 📈 Stock Chart with Volume")
 
-    # Toggle for chart type
     chart_type = st.radio(
         "Select Chart Type:",
         ["Candlestick", "Line Chart"],
@@ -194,14 +160,11 @@ if st.session_state.stock_data is not None:
         key="chart_toggle"
     )
 
-    # Import for subplots
     from plotly.subplots import make_subplots
-    
-    # Create volume bar colors
+
     colors = ['green' if data['Close'].iloc[i] >= data['Open'].iloc[i] else 'red' 
               for i in range(len(data))]
 
-    # Create figure with subplots (2 rows: price and volume)
     fig = make_subplots(
         rows=2, cols=1,
         shared_xaxes=True,
@@ -211,7 +174,6 @@ if st.session_state.stock_data is not None:
     )
 
     if chart_type == "Candlestick":
-        # Add candlestick to top subplot
         fig.add_trace(go.Candlestick(
             x=data.index,
             open=data["Open"],
@@ -223,7 +185,6 @@ if st.session_state.stock_data is not None:
             decreasing_line_color="red",
         ), row=1, col=1)
     else:
-        # Add line chart to top subplot
         fig.add_trace(go.Scatter(
             x=data.index,
             y=data["Close"],
@@ -232,7 +193,6 @@ if st.session_state.stock_data is not None:
             line=dict(width=2, color="#00BFFF")
         ), row=1, col=1)
 
-    # Add SMAs to top subplot
     fig.add_trace(go.Scatter(
         x=data.index,
         y=data["SMA_50"],
@@ -249,7 +209,6 @@ if st.session_state.stock_data is not None:
         line=dict(width=1.5, color="cyan")
     ), row=1, col=1)
 
-    # Add volume bars to bottom subplot
     fig.add_trace(go.Bar(
         x=data.index,
         y=data['Volume'],
@@ -259,15 +218,13 @@ if st.session_state.stock_data is not None:
         showlegend=False
     ), row=2, col=1)
 
-    # Update layout
     fig.update_layout(
         template="plotly_dark",
         height=700,
         xaxis_rangeslider_visible=False,
         hovermode='x unified'
     )
-    
-    # Update y-axes labels
+
     fig.update_yaxes(title_text="Price (USD)", row=1, col=1)
     fig.update_yaxes(title_text="Volume", row=2, col=1)
     fig.update_xaxes(title_text="Date", row=2, col=1)
@@ -275,15 +232,11 @@ if st.session_state.stock_data is not None:
     st.plotly_chart(fig, use_container_width=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # -----------------------------------
-    # 📄 LATEST SNAPSHOT
-    # -----------------------------------
     st.markdown('<div class="metric-card">', unsafe_allow_html=True)
     st.markdown("### 📄 Latest Snapshot")
     
     latest = data.iloc[-1]
     
-    # Price change display
     if len(data) >= 2:
         prev_close = data.iloc[-2]["Close"]
         current_close = latest["Close"]
@@ -318,9 +271,6 @@ if st.session_state.stock_data is not None:
     
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # -----------------------------------
-    # 🎯 TRADING SIGNALS
-    # -----------------------------------
     st.markdown('<div class="metric-card">', unsafe_allow_html=True)
     st.markdown("### 🎯 Trading Signals")
     
@@ -347,9 +297,6 @@ if st.session_state.stock_data is not None:
     
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # -----------------------------------
-    # 📊 TECHNICAL INDICATORS
-    # -----------------------------------
     st.markdown('<div class="metric-card">', unsafe_allow_html=True)
     st.markdown("### 📊 Technical Indicators")
 
@@ -375,9 +322,6 @@ if st.session_state.stock_data is not None:
     
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # -----------------------------------
-    # 🏢 COMPANY FUNDAMENTALS
-    # -----------------------------------
     st.markdown('<div class="metric-card">', unsafe_allow_html=True)
     st.markdown("### 🏢 Company Fundamentals")
 
@@ -402,9 +346,6 @@ if st.session_state.stock_data is not None:
     
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # -----------------------------------
-    # 💾 EXPORT DATA
-    # -----------------------------------
     st.markdown('<div class="metric-card">', unsafe_allow_html=True)
     st.markdown("### 💾 Export Data")
     
@@ -425,5 +366,5 @@ render_ai_drawer(
     ),
     page_title="Stock Data",
     key_prefix="stock_ai",
-    expanded=False,   # start collapsed; user can open it
+    expanded=False,   
 )

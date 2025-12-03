@@ -14,9 +14,6 @@ st.set_page_config(page_title="Sentiment Analysis", layout="wide", initial_sideb
 load_dotenv()
 newsapi = NewsApiClient(api_key=os.getenv("NEWS_API_KEY"))
 
-# ----------------------------
-# CUSTOM STYLING
-# ----------------------------
 st.markdown("""
 <style>
 /* Enhanced styling for metrics and cards */
@@ -81,9 +78,6 @@ div[data-testid="column"] .chart-wrapper {
 </style>
 """, unsafe_allow_html=True)
 
-# ----------------------------
-# HEADER & NAVIGATION
-# ----------------------------
 
 col_back, _ = st.columns([1, 11])
 with col_back:
@@ -101,9 +95,6 @@ st.markdown("""
 
 st.divider()
 
-# ----------------------------
-# INPUT SECTION
-# ----------------------------
 col1, col2, col3 = st.columns([3, 2, 2])
 with col1:
     symbol = st.text_input("Enter a Stock Symbol:", value="AAPL", help="Enter the ticker symbol (e.g., AAPL, TSLA, MSFT)")
@@ -135,9 +126,6 @@ button[kind="header"] {
 """, unsafe_allow_html=True)
 
 
-# ----------------------------
-# ANALYSIS SECTION
-# ----------------------------
 if analyze_btn or (symbol and 'sentiment_data' in st.session_state and st.session_state.get('last_symbol') == symbol):
     with st.spinner(f"🔍 Analyzing sentiment for {symbol.upper()}..."):
         analyzer = SentimentIntensityAnalyzer()
@@ -159,7 +147,6 @@ if analyze_btn or (symbol and 'sentiment_data' in st.session_state and st.sessio
                 st.warning(f"⚠️ No articles found for {symbol.upper()}. Try a different symbol or increase the time period.")
                 st.stop()
 
-            # Process articles
             articles_with_sentiment = []
             for article in articles_data["articles"]:
                 if not article.get('title') or not article.get('description'):
@@ -184,14 +171,12 @@ if analyze_btn or (symbol and 'sentiment_data' in st.session_state and st.sessio
                 st.error("⚠️ No valid articles found. Please try again.")
                 st.stop()
 
-            # Calculate statistics
             sentiments = [a['compound'] for a in articles_with_sentiment]
             avg_sentiment = sum(sentiments) / len(sentiments)
             positive_count = sum(1 for s in sentiments if s > 0.05)
             negative_count = sum(1 for s in sentiments if s < -0.05)
             neutral_count = len(sentiments) - positive_count - negative_count
 
-            # Store in session state
             st.session_state.sentiment_data = articles_with_sentiment
             st.session_state.avg_sentiment = avg_sentiment
             st.session_state.last_symbol = symbol
@@ -200,9 +185,6 @@ if analyze_btn or (symbol and 'sentiment_data' in st.session_state and st.sessio
             st.error(f"❌ Error fetching data: {str(e)}")
             st.stop()
 
-    # ----------------------------
-    # OVERVIEW METRICS
-    # ----------------------------
     st.markdown(f"### 📊 Analysis Overview for **{symbol.upper()}**")
     
     col1, col2, col3, col4 = st.columns(4)
@@ -231,9 +213,6 @@ if analyze_btn or (symbol and 'sentiment_data' in st.session_state and st.sessio
 
     st.divider()
 
-    # ----------------------------
-    # VISUALIZATIONS
-    # ----------------------------
     st.markdown("""
     <style>
     .chart-section-wrapper {
@@ -253,7 +232,6 @@ if analyze_btn or (symbol and 'sentiment_data' in st.session_state and st.sessio
     col1, col2 = st.columns(2)
 
     with col1:
-        # Create container with title
         container_id = "sentiment-dist-wrapper"
         st.markdown(f"""
         <div id="{container_id}" class="chart-section-wrapper">
@@ -261,7 +239,6 @@ if analyze_btn or (symbol and 'sentiment_data' in st.session_state and st.sessio
         </div>
         """, unsafe_allow_html=True)
         
-        # Pie chart
         sentiment_counts = [positive_count, negative_count, neutral_count]
         labels = ['Positive', 'Negative', 'Neutral']
         colors = ['#00C853', '#E53935', '#FFA726']
@@ -284,7 +261,6 @@ if analyze_btn or (symbol and 'sentiment_data' in st.session_state and st.sessio
         )
         st.plotly_chart(fig_pie, use_container_width=True, key="pie_chart")
         
-        # JavaScript to wrap chart in container using MutationObserver
         st.markdown(f"""
         <script>
             (function() {{
@@ -344,7 +320,6 @@ if analyze_btn or (symbol and 'sentiment_data' in st.session_state and st.sessio
         </div>
         """, unsafe_allow_html=True)
         
-        # Gauge chart
         fig_gauge = go.Figure(go.Indicator(
             mode = "gauge+number+delta",
             value = avg_sentiment,
@@ -423,7 +398,6 @@ if analyze_btn or (symbol and 'sentiment_data' in st.session_state and st.sessio
         </script>
         """, unsafe_allow_html=True)
 
-    # Sentiment timeline (if dates are available)
     df_timeline = pd.DataFrame(articles_with_sentiment)
     
     container_id3 = "sentiment-timeline-wrapper"
@@ -471,7 +445,6 @@ if analyze_btn or (symbol and 'sentiment_data' in st.session_state and st.sessio
         )
         st.plotly_chart(fig_timeline, use_container_width=True, key="timeline_chart")
         
-        # JavaScript to wrap chart in container
         st.markdown(f"""
         <script>
             (function() {{
@@ -524,15 +497,10 @@ if analyze_btn or (symbol and 'sentiment_data' in st.session_state and st.sessio
 
     st.divider()
 
-    # ----------------------------
-    # DETAILED BREAKDOWN
-    # ----------------------------
     st.markdown("#### 📰 Individual Article Analysis")
     
-    # Sort articles by sentiment (most positive first)
     sorted_articles = sorted(articles_with_sentiment, key=lambda x: x['compound'], reverse=True)
-    
-    # Tabs for different views
+
     tab1, tab2, tab3 = st.tabs(["📋 All Articles", "😀 Most Positive", "😞 Most Negative"])
     
     with tab1:
@@ -598,9 +566,6 @@ if analyze_btn or (symbol and 'sentiment_data' in st.session_state and st.sessio
 
     st.divider()
 
-    # ----------------------------
-    # SUMMARY INSIGHTS
-    # ----------------------------
     st.markdown("#### 💡 Key Insights")
     
     col1, col2 = st.columns(2)
@@ -628,7 +593,6 @@ if analyze_btn or (symbol and 'sentiment_data' in st.session_state and st.sessio
 else:
     st.info("👆 Enter a stock symbol above and click 'Analyze Sentiment' to get started!")
     
-    # Show example/demo section
     st.markdown("""
     ### 🎯 What You'll Get:
     - **Sentiment Score**: Overall positive/negative/neutral rating

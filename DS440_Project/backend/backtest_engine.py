@@ -9,10 +9,6 @@ from backtesting.lib import crossover
 from backtesting.test import SMA
 import ta
 
-
-# =========================================================
-# DATA FETCHER
-# =========================================================
 def fetch_ohlcv(
     symbol: str,
     start: Optional[str] = None,
@@ -29,7 +25,6 @@ def fetch_ohlcv(
       - 1d+           : years
     """
     def _days_for_period(p: str) -> int:
-        # very rough conversion; just for comparing caps
         if p.endswith("d"):
             return int(p[:-1])
         if p.endswith("mo"):
@@ -47,11 +42,10 @@ def fetch_ohlcv(
         "15m": "60d",
         "30m": "60d",
         "90m": "60d",
-        "60m": "730d",  # ~2y
+        "60m": "730d",  
         "1h": "730d",
     }
 
-    # If user asked for an intraday interval with too-long period, clamp or explain
     if period and interval in intraday_caps:
         maxp = intraday_caps[interval]
         if _days_for_period(period) > _days_for_period(maxp):
@@ -62,7 +56,6 @@ def fetch_ohlcv(
 
     kwargs = {"interval": interval, "auto_adjust": True, "progress": False, "threads": False}
     
-    # Prefer period for simplicity; start/end with intraday often fails if too old
     if start or end:
         data = yf.download(symbol, start=start, end=end, **kwargs)
     else:
@@ -79,9 +72,6 @@ def fetch_ohlcv(
     return data
 
 
-# =========================================================
-# RESULT PACKING
-# =========================================================
 def summarize_results(stats: pd.Series) -> Dict[str, Any]:
     def val(key, default=None):
         return (stats.get(key, default) if hasattr(stats, "get") else default)
@@ -99,9 +89,6 @@ def summarize_results(stats: pd.Series) -> Dict[str, Any]:
     }
 
 
-# =========================================================
-# SAFE EVAL FOR ENTRY/EXIT RULES
-# =========================================================
 def _safe_eval(expr: str, context: Dict[str, Any]) -> bool:
     """
     Very small, safe evaluator for boolean expressions of indicators.
@@ -117,48 +104,38 @@ def _safe_eval(expr: str, context: Dict[str, Any]) -> bool:
             raise ValueError("Not allowed in rules")
     return bool(eval(compile(tree, "<expr>", "eval"), {"__builtins__": {}}, context))
 
-
-# =========================================================
-# SPEC STRATEGY BUILDER
-# =========================================================
 def build_strategy_from_spec(spec: Dict[str, Any]) -> type[Strategy]:
     params = spec.get("params", {})
     entry_expr = spec.get("entry", "")
     exit_expr = spec.get("exit", "")
 
     class SpecStrategy(Strategy):
-        _params = params  # for transparency
+        _params = params  
 
         def init(self):
             self.sma_fast = self.I(SMA, self.data.Close, int(params.get("fast", 10)))
             self.sma_slow = self.I(SMA, self.data.Close, int(params.get("slow", 30)))
 
-            # RSI via TA: use underlying close array
             import numpy as np
             close = pd.Series(self.data.Close)
             rsi_series = ta.momentum.rsi(close, window=int(params.get("rsi", 14))).fillna(50)
             self.rsi = self.I(lambda: rsi_series.values)
 
         def next(self):
-            # Build a tiny expression context
             ctx = {
                 "crossover": crossover,
                 "SMA_fast": self.sma_fast,
                 "SMA_slow": self.sma_slow,
                 "RSI": self.rsi[-1],
-                # last prices:
                 "close": self.data.Close[-1],
-                "position": self.position,  # can inspect size, pl, etc.
+                "position": self.position,  
             }
             ctx.update({k: v for k, v in params.items() if isinstance(v, (int, float))})
 
-            # Evaluate entry
             if self.position.size == 0:
-                # Entry rule
                 if entry_expr and _safe_eval(entry_expr, ctx):
                     self.buy()
             else:
-                # Exit rule
                 if exit_expr and _safe_eval(exit_expr, ctx):
                     self.position.close()
 
@@ -166,9 +143,6 @@ def build_strategy_from_spec(spec: Dict[str, Any]) -> type[Strategy]:
     return SpecStrategy
 
 
-# =========================================================
-# CODE EXEC STRATEGY BUILDER (OPTIONAL)
-# =========================================================
 def build_strategy_from_code(py_code: str) -> type[Strategy]:
     """Not used by your UI but left here safely."""
     local_env = {}
@@ -179,9 +153,6 @@ def build_strategy_from_code(py_code: str) -> type[Strategy]:
     return Strat
 
 
-# =========================================================
-# RUN BACKTEST
-# =========================================================
 def run_backtest(
     symbol: str,
     mode: str,
@@ -207,7 +178,6 @@ def run_backtest(
 
     stats = bt.run()
 
-    # Save useful tables
     trades = bt._results._trades if hasattr(bt._results, "_trades") else pd.DataFrame()
     equity = bt._results._equity_curve if hasattr(bt._results, "_equity_curve") else pd.DataFrame()
 

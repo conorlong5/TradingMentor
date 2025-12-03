@@ -6,13 +6,11 @@ from dotenv import load_dotenv
 import google.generativeai as genai
 from components.ai_drawer import render_ai_drawer
 
-# Load .env
 load_dotenv()
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
 st.set_page_config(page_title="Strategy Generator", layout="wide")
 
-# Home button and title stacked vertically
 col_back, _ = st.columns([1, 11])
 with col_back:
     if st.button("← Home", use_container_width=True):
@@ -31,7 +29,6 @@ st.markdown("""
 st.divider()
 strategy_spec = None
 
-# -------------------- INPUTS --------------------
 st.caption("Fill in the details below to generate a clear trading strategy.")
 col1, col2 = st.columns(2)
 with col1:
@@ -46,24 +43,20 @@ with col2:
 st.caption("Describe any additional strategy details below (optional):")
 description = st.text_area("Additional Strategy Details:", height=100, key="plain_desc")
 
-# Saved strategies dict in session state
 if 'saved_strategies' not in st.session_state or not isinstance(st.session_state.saved_strategies, dict):
     st.session_state.saved_strategies = {}
 
 strategy_save_name = st.text_input("Strategy Name:", "My Strategy", key="save_name_bottom")
 
-# -------------------- GENERATE STRATEGY --------------------
 if st.button("Generate Strategy", key="btn_gen"):
     if not stock_name.strip() or not total_capital.strip() or not potential_profit.strip() or not risk_level.strip():
         st.warning("Please fill in all the required fields.")
     else:
-        # Convert total_capital to float
         try:
             capital_float = float(total_capital) if total_capital.replace('.', '', 1).isdigit() else 10000.0
         except:
             capital_float = 10000.0
         
-        # Experience level prompt
         if experience == "Beginner":
             exp_prompt = (
                 "Write the strategy in very simple, step-by-step language. Avoid jargon. "
@@ -81,8 +74,7 @@ if st.button("Generate Strategy", key="btn_gen"):
             )
 
         model = genai.GenerativeModel("gemini-flash-latest")
-        
-        # 1) Generate plain-English strategy
+
         with st.spinner("Generating strategy (plain English)..."):
             plain_prompt = f"""
 You are a trading-strategy generator for a restricted backtesting engine.
@@ -109,7 +101,6 @@ User details:
             resp = model.generate_content(plain_prompt)
             strategy_text = (resp.text or "_No strategy generated._").strip()
 
-        # 2) Generate JSON spec for backtesting
         with st.spinner("Encoding strategy into JSON spec for backtesting..."):
             json_prompt = f"""
 You are a trading strategy encoder for a Python backtesting engine.
@@ -163,7 +154,6 @@ Output VALID JSON only.
                 json_resp = model.generate_content(json_prompt)
                 raw_json = json_resp.text.strip()
                 
-                # Clean JSON (remove markdown if present)
                 if "```json" in raw_json:
                     raw_json = raw_json.split("```json")[1].split("```")[0].strip()
                 elif "```" in raw_json:
@@ -171,7 +161,6 @@ Output VALID JSON only.
                 
                 strategy_json = json.loads(raw_json)
             except Exception:
-                # Fallback JSON spec if parsing fails
                 strategy_json = {
                     "name": f"LLM Strategy for {stock_name}",
                     "stock_name": stock_name,
@@ -187,18 +176,15 @@ Output VALID JSON only.
                     "exit": "RSI > rsi_sell or crossover(SMA_slow, SMA_fast)",
                 }
 
-        # Store both text + JSON in session
         st.session_state.generated_strategy = {
             "text": strategy_text,
             "json": strategy_json,
         }
         st.session_state.strategy_type = "llm_spec"
         
-        # Show success message and strategy description
         st.success("✅ Strategy generated successfully!")
         st.info("💡 Go to Backtest page to view detailed results and performance metrics.")
-        
-        # Show strategy description
+
         st.markdown("### 📋 Strategy Description")
         st.markdown(
             """
@@ -210,10 +196,8 @@ Output VALID JSON only.
         st.write(strategy_text)
         st.markdown("</div>", unsafe_allow_html=True)
         
-        # Auto-save strategy
         st.session_state.saved_strategies[strategy_save_name] = st.session_state.generated_strategy
 
-# -------------------- SAVE STRATEGY (Optional - for renaming) --------------------
 if st.button("Save Strategy with Different Name", key="btn_save_strategy_bottom"):
     if 'generated_strategy' in st.session_state and st.session_state.generated_strategy:
         st.session_state.saved_strategies[strategy_save_name] = st.session_state.generated_strategy
@@ -221,7 +205,6 @@ if st.button("Save Strategy with Different Name", key="btn_save_strategy_bottom"
     else:
         st.warning("Please generate a strategy before saving.")
 
-# -------------------- SHOW SAVED STRATEGIES --------------------
 if st.session_state.saved_strategies:
     st.divider()
     st.markdown("### 📁 Saved Strategies")
