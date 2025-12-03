@@ -673,7 +673,7 @@ with tab_saved:
         strategy_names = list(saved_strategies.keys())
         chosen_name = st.selectbox("Select Strategy:", strategy_names)
 
-        chosen_strategy = saved_strategies[chosen_name]
+        chosen_strategy = st.session_state.saved_strategies[chosen_name]
         strategy_text = chosen_strategy.get("text", "")
         base_json = chosen_strategy.get("json", {})
 
@@ -690,7 +690,7 @@ with tab_saved:
             unsafe_allow_html=True,
         )
 
-        col1, col2 = st.columns(2)
+        col1, col2, col3 = st.columns(3)
         with col1:
             symbol = st.text_input(
                 "Stock Symbol",
@@ -705,17 +705,24 @@ with tab_saved:
                 step=500,
                 key="saved_capital",
             )
-        
-        # Use maximum available historical data (no user selection)
-        period = "max"
-        st.info("ℹ️ Using maximum available historical data for this stock (all data from IPO to present).")
+        with col3:
+            period = st.selectbox(
+                "Backtest Lookback",
+                ["6mo", "1y", "2y", "5y"],
+                index=1,  # default to 1y
+                key="saved_period",
+            )
+
+        st.info(
+            f"ℹ️ Using daily data over approximately the last {period} for this stock."
+        )
 
         if st.button("Run Backtest (Saved Strategy)", type="primary"):
             with st.spinner("Running backtest..."):
                 try:
                     # Use the saved JSON spec directly (no LLM conversion needed)
                     spec = base_json.copy()
-                    
+
                     # Ensure required fields exist with fallbacks
                     if "params" not in spec or not spec["params"]:
                         spec["params"] = {
@@ -725,28 +732,33 @@ with tab_saved:
                             "rsi_buy": 30,
                             "rsi_sell": 70,
                         }
-                    
+
                     if "entry" not in spec or not spec.get("entry"):
                         spec["entry"] = "crossover(SMA_fast, SMA_slow) and RSI < rsi_buy"
-                    
+
                     if "exit" not in spec or not spec.get("exit"):
                         spec["exit"] = "crossover(SMA_slow, SMA_fast) or RSI > rsi_sell"
-                    
+
                     # Update symbol and name for display purposes
                     spec["stock_name"] = symbol
                     spec["name"] = spec.get("name", chosen_name)
-                    
+
                     # Fetch data to know number of points used
                     data = fetch_ohlcv(symbol, period=period, interval="1d")
-                    
-                    # Get data date range for time-based analysis
+
+                    # Basic safety check for newer stocks (very little history)
+                    if len(data) < 60:
+                        st.warning(
+                            f"Only {len(data)} daily candles available for {symbol} over {period}. "
+                            "Please select a shorter lookback or choose a more established stock."
+                        )
+                        st.stop()  # stop this run cleanly
+
+                    data_points = len(data)
                     data_start_date = data.index[0] if len(data) > 0 else None
                     data_end_date = data.index[-1] if len(data) > 0 else None
 
-                    # Get minimum required trades for this period
-                    min_trades = get_min_trades_for_period(period)
-                    
-                    # Run initial backtest
+                    # Run backtest once, as-is
                     bt_result, trades_df, equity_df = run_backtest(
                         symbol=symbol,
                         mode="spec",
@@ -757,125 +769,76 @@ with tab_saved:
                     )
 
                     total_trades = bt_result.get("trades", 0)
-                    original_spec = spec.copy()
-                    adjustment_made = False
-                    adjustment_level = 0
-                    adjustment_description = ""
-                    
-                    # If not enough trades, adjust strategy to be more sensitive
-                    if total_trades < min_trades:
-                        adjustment_made = True
-                        max_adjustments = 3
-                        
-                        for adj_level in range(1, max_adjustments + 1):
-                            adjustment_level = adj_level
-                            adjusted_spec = adjust_spec_for_more_trades(original_spec, adj_level)
-                            
-                            # Re-run backtest with adjusted parameters
-                            bt_result, trades_df, equity_df = run_backtest(
-                                symbol=symbol,
-                                mode="spec",
-                                strategy_spec_or_code=adjusted_spec,
-                                cash=initial_capital,
-                                period=period,
-                                interval="1d",
-                            )
-                            
-                            total_trades = bt_result.get("trades", 0)
-                            
-                            # If we now have enough trades, stop adjusting
-                            if total_trades >= min_trades:
-                                spec = adjusted_spec
-                                # Generate description of changes
-                                adjustment_description = describe_parameter_changes(original_spec, adjusted_spec)
-                                break
-                        
-                        # If still not enough after all adjustments, use the best attempt
-                        if total_trades < min_trades:
-                            st.warning(
-                                f"⚠️ Strategy only generated {total_trades} trades (minimum recommended: {min_trades} for {period}). "
-                                f"Results may not be statistically significant. Consider adjusting your strategy parameters manually."
-                            )
-                            # Still describe what was tried
-                            if adjustment_level > 0:
-                                final_adjusted = adjust_spec_for_more_trades(original_spec, adjustment_level)
-                                adjustment_description = describe_parameter_changes(original_spec, final_adjusted)
-
-                    data_points = len(data)
                     win_rate = bt_result.get("win_rate", 0.0)
-                    
-                    # Show adjustment notice if made
-                    if adjustment_made:
-                        st.info(
-                            f"ℹ️ Strategy parameters were automatically adjusted (level {adjustment_level}) "
-                            f"to meet minimum trade requirement ({min_trades} trades for {period} period)."
+                    min_trades = get_min_trades_for_period(period)
+
+                    # Warn if sample size is low, but do NOT change the strategy
+                    if total_trades < min_trades:
+                        st.warning(
+                            f"Strategy only generated {total_trades} trades "
+                            f"(minimum recommended: {min_trades} for {period}). "
+                            "Treat these results as low-confidence. "
+                            "Consider loosening your entry rules or using a different symbol/timeframe."
                         )
 
+                    # ---------- Standard results (same as custom tab) ----------
                     st.markdown("## 📊 Backtest Results (Saved Strategy)")
-                    c1, c2, c3, c4 = st.columns(4)
-                    c1.metric("Data Points Used", data_points)
-                    
-                    # Show trades with minimum requirement indicator
-                    if total_trades >= min_trades:
-                        trades_delta = f"✓ Meets minimum ({min_trades})"
-                        trades_color = "normal"
-                    else:
-                        trades_delta = f"⚠️ Below minimum ({min_trades})"
-                        trades_color = "inverse"
-                    c2.metric("Total Trades", total_trades, delta=trades_delta, delta_color=trades_color)
-                    
-                    c3.metric("Win Rate", f"{win_rate:.2f}%")
-                    
-                    # Calculate average return %
+
+                    # Show data points metric above the shared results block
+                    st.metric("Data Points Used", data_points)
+
+                    # This draws: Return %, Trades, Win Rate, Sharpe, Max DD, Buy & Hold,
+                    # equity curve chart, full trades table + CSV download
+                    _show_results(bt_result, trades_df, equity_df)
+
+                    render_strategy_explanation_with_gemini(
+                        symbol=symbol,
+                        spec_or_code=spec,
+                        is_json_spec=True,
+                        results=bt_result,
+                        period=period,
+                        interval="1d",
+                    )
+
+                    # ---------- Trade highlights (top/bottom 3) ----------
                     detailed_trades = build_trade_summary(trades_df, initial_capital)
-                    if detailed_trades and len(detailed_trades) > 0:
-                        avg_return_pct = sum(trade.get("return_pct", 0) for trade in detailed_trades) / len(detailed_trades)
-                        c4.metric("Avg Return %", f"{avg_return_pct:.2f}%")
-                    else:
-                        c4.metric("Avg Return %", "N/A")
-                    
+                    st.markdown("## 🧾 Trade Highlights")
                     render_trade_lists(detailed_trades)
 
-                    # AI explanation
+                    # ---------- AI explanation ----------
                     st.markdown("## 🧠 Backtest Summary (AI)")
                     if not GOOGLE_API_KEY:
                         st.warning("Set GOOGLE_API_KEY in your .env file to enable AI summaries.")
                     else:
-                        # Analyze time-based performance
-                        time_analysis = analyze_time_based_performance(trades_df, equity_df, data_start_date, data_end_date)
-                        
-                        # Build adjustment context for AI
-                        adjustment_context = ""
-                        if adjustment_made and adjustment_description:
-                            adjustment_context = f"""
+                        time_analysis = analyze_time_based_performance(
+                            trades_df, equity_df, data_start_date, data_end_date
+                        )
 
-IMPORTANT: The strategy parameters were automatically adjusted to meet the minimum trades requirement.
-{adjustment_description}
-
-Please explain to the user what these adjustments mean and how they might affect the strategy's performance.
-"""
-                        
-                        # Build time-based context
                         time_context = ""
                         if time_analysis:
                             time_context = f"""
 
 TIME-BASED PERFORMANCE ANALYSIS:
 {time_analysis}
-
-CRITICAL: Analyze how effective this strategy was over time. If the strategy worked well historically (earlier period) but not recently, explicitly warn the user that while the strategy may have been successful in the past, it might not be as effective in current market conditions. Explain whether the strategy's effectiveness has changed over time and what this means for future use.
 """
-                        
+
+                        low_trades_note = ""
+                        if total_trades < min_trades:
+                            low_trades_note = (
+                                f"Note: This strategy only produced {total_trades} trades, which is below "
+                                f"the recommended minimum of {min_trades} for {period}. "
+                                "Emphasize that the statistical confidence is low.\n"
+                            )
+
                         summary_prompt = f"""
 Summarize this trading backtest for a beginner trader.
 
+{low_trades_note}
 Explain:
 - What these results roughly mean
 - Whether the strategy appears strong or weak compared to buy & hold
 - Main risks or weaknesses to be aware of
 - One or two ideas to improve the strategy
-{adjustment_context}
-{time_context}
 
 Strategy name: {spec.get('name', 'Unnamed Strategy')}
 Symbol: {symbol}
@@ -886,6 +849,8 @@ Win Rate: {win_rate:.2f}%
 Strategy Return [%]: {bt_result.get('return_pct', 0.0):.2f}
 Buy & Hold Return [%]: {bt_result.get('buy_hold_return_pct', 0.0):.2f}
 Max Drawdown [%]: {bt_result.get('max_drawdown_pct', 0.0):.2f}
+
+{time_context}
 """
                         try:
                             model = genai.GenerativeModel("gemini-flash-latest")
@@ -917,18 +882,25 @@ with tab_custom:
         key="plain_desc_custom",
     )
 
-    col1, col2 = st.columns(2)
+    col1, col2, col3 = st.columns(3)
     with col1:
         custom_symbol = st.text_input("Stock Symbol", "AAPL", key="custom_symbol")
     with col2:
         custom_capital = st.number_input(
             "Initial Capital ($)", min_value=1000, value=10000, step=500, key="custom_capital"
         )
-    
-    # Use maximum available historical data (no user selection)
-    custom_period = "max"
+    with col3:
+        custom_period = st.selectbox(
+            "Backtest Lookback",
+            ["6mo", "1y", "2y", "5y"],
+            index=1,  # default to 1y
+            key="custom_period",
+        )
+
     custom_interval = "1d"
-    st.info("ℹ️ Using maximum available historical data for this stock (all data from IPO to present).")
+    st.info(
+        f"ℹ️ Using daily data over approximately the last {custom_period} for this stock."
+    )
 
     if st.button("Run Backtest (Plain English)", type="primary", key="btn_plain_custom"):
         if not user_text.strip():
@@ -1008,7 +980,15 @@ USER STRATEGY DESCRIPTION:
                     else:
                         # Run backtest
                         data2 = fetch_ohlcv(custom_symbol, period=custom_period, interval=custom_interval)
-                        
+
+                        # Basic safety check for newer stocks (very little history)
+                        if len(data2) < 60:
+                            st.warning(
+                                f"Only {len(data2)} daily candles available for {custom_symbol} over {custom_period}. "
+                                "Please select a shorter lookback or choose a more established stock."
+                            )
+                            st.stop()
+
                         bt_res2, trades2_df, eq2_df = run_backtest(
                             symbol=custom_symbol,
                             mode="spec",
